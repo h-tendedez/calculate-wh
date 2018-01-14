@@ -4,95 +4,111 @@ import time
 import sys
 import datetime
 import logging
-import logging.handlers
 import csv
 import pandas as pd
-# for pyplot
 import numpy as np
-import matplotlib.pyplot as plt
 import datetime
 import time
 
+## Read CSV
+data = pd.read_csv('yourCSV.csv', sep=",", header = None)
 
-## Insert your log, amend your seperator and if a header is present
-data = pd.read_csv('yourlog.log', sep=" ", header = None)
-
-## Remove any NaNs
+## Remove any pesky NaNs
 data = data.dropna()
 
 ## Name each column
-data.columns = ["Date", "Time", "Plug", "MAC Address", "Watts", "At", "UNIX Time" ]
+data.columns = ["Date", "Time", "Plug", "MAC Address", "Watts"]
 
-# Remove nanoseconds from time (not needed for this process)
+# Remove nanoseconds from time (not needed...)
 data['Time'] = [x.split(',')[0] for x in data['Time']]
 
 ## Combine date, time and watts.
 data["DateTime"] = data["Date"].map(str) + " " + data["Time"]
-
+data["DateandTime"] = data["Date"].map(str) + " " + data["Time"]
+data["DateTimeWatts"] = data["Date"].map(str) + " " + data["Time"].map(str) + " " + data["Watts"].map(str)
+data['DateandTime'] = [x.split(':')[0] for x in data['DateandTime']]
+data['DateandTime'] = [x.split(':')[0] for x in data['DateandTime']]
+data['DateandTime'] = data['DateandTime'].astype(str) + ':'
 data["DateTime"] = pd.to_datetime(data['DateTime'])
 
-data["DateTimeWatts"] = data["Date"].map(str) + " " + data["Time"].map(str) + " " + data["Watts"].map(str)
-
-
 ## Get dates from log
-uniqueDates = np.unique(data.Date)
-
-print(uniqueDates)
+uniqueDates = np.unique(data.DateandTime)
+uniquePlug = np.unique(data.Plug)
 
 ## Method to calc Wh
-def calcWh(self, uniqueDates):
+def calcWh(self, uniqueDates, uniquePlug):
+
     totalinWh = []
-    index = 0
     i = 0
-    dates = 0
+    plugs = 0
 
-    for i in range(len(uniqueDates)):
+    for j in range (len(uniquePlug)):
 
-        total = 0
-        ## Get days
-        thisDate = data[data['Date'].isin([uniqueDates[dates]])]
+        # Grab plugs and reset index
+        thisDevice = data[data['Plug'].isin([uniquePlug[plugs]])]
+        thisDevice = thisDevice.reset_index(drop=True)
 
-        thisDate = thisDate.reset_index(drop=True)
-        #print((len(thisDate)-1))
-        for k in range(len(thisDate)-1):
+        # Iterators
+        dates = 0
+        index = 0
 
-            ## Get Watts
-            value1 = thisDate.Watts[k]
-            value2 = thisDate.Watts[k+1]
+        for i in range(len(uniqueDates)):
 
-            totalWatts = (value1 + value2)/2
-            ## Get Times
-            time1 = thisDate.DateTime[k]
+                total = 0
 
-            time2 = thisDate.DateTime[k+1]
+                ## Get days
+                thisDate = data[data['DateandTime'].isin([uniqueDates[dates]]) & data['Plug'].isin([uniquePlug[plugs]])]
+                thisDate = thisDate.reset_index(drop=True)
 
-            ## Calculate difference in time
-            time = pd.Timedelta(time2 - time1).seconds
-            #print(time, totalWatts)
+                for k in range(len(thisDate)-1):
 
-            sumtotal = time * totalWatts
+                    ## Get Watts
+                    value1 = thisDate.Watts[k]
+                    value2 = thisDate.Watts[k+1]
 
-            total = total + sumtotal
-            #print(time, sumtotal, total)
-        #print(min(wtts),max(wtts))
-        theDay = uniqueDates[index]
+                    totalWatts = (value1 + value2)/2
 
-        total = total/3600
+                    ## Get Times
+                    time1 = thisDate.DateTime[k]
 
-        result = [theDay, total]
+                    time2 = thisDate.DateTime[k+1]
 
-        totalinWh.append(result)
+                    ## Calculate difference in time
+                    time = pd.Timedelta(time2 - time1).seconds
 
-        index = index + 1
+                    sumtotal = time * totalWatts
 
-        dates = dates + 1
-
-    return totalinWh
+                    total = total + sumtotal
+                    theDay = uniqueDates[index]
 
 
-totalinWh = calcWh(data.DateTimeWatts, uniqueDates)
+                theDevice = uniquePlug[plugs]
 
-## unpack list
-dates, watts = zip(*totalinWh)
+                total = total/3600
 
-print(totalinWh)
+                result = [theDevice, theDay, total]
+
+                totalinWh.append(result)
+        
+                index = index + 1
+        
+                dates = dates + 1
+
+        plugs = plugs + 1
+
+    return totalinWh    
+
+totalinWh = calcWh(data.DateTimeWatts, uniqueDates, uniquePlug)
+
+## Save to CSV
+
+totalinWh = np.array(totalinWh)
+totalinWh = pd.DataFrame(totalinWh)
+
+totalinWh.columns = ["Plug", "DateTime", "Wh"]
+
+totalinWh['DateTime'] = totalinWh['DateTime'].astype(str) + '00'
+
+totalinWh.to_csv('OUTPUT.csv', sep=',', index=False, header = False)
+
+
