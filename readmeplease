@@ -1,0 +1,16 @@
+This script calculates the watt hours for a log of time series data containing:
+
+DATE, TIME, NAME, MAC ADDRESS, WATTS, UNIX TIME
+
+DATE - the date of the reading.
+TIME - the time of the reading.
+PLUG - the name of the device
+MAC ADDRESS - the mac address of the plug 
+WATTS - the watt reading
+
+Remove or add as necessary depending on the format of the log file you input.
+
+The script takes a time series data relating to device readings and calculates the watt hours for each device in the file based on the given watt readings.
+
+The output is a CSV file containing the PLUG, date time and corresponding watt hours. 
+
